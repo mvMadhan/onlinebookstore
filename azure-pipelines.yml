@@ -5,15 +5,15 @@ variables:
   docker_image: 'mvmadhan/tomcat'
   GIT_REPO_NAME: 'onlinebookstore'
   GIT_USER_NAME: 'mvMadhan'
+  system.debug: 'false' # Explicitly set debug context
 
 pool:
-  vmImage: 'linuxagents' # or use your self-hosted agent pool
+  vmImage: 'linuxagents' # or your self-hosted agent pool name
 
 stages:
 - stage: Build
   jobs:
   - job: BuildAndPush
-    container: mvmadhan/maven-docker-agent:v1
     steps:
     - checkout: self
       clean: true
@@ -27,20 +27,7 @@ stages:
         ls -la
       displayName: 'Maven build'
     
-    # Install Docker CLI
-    - script: |
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh
-      displayName: 'Install Docker'
-      condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
-    
-    # Alternative for self-hosted agents with Docker pre-installed
-    - task: Docker@2
-      displayName: 'Login to Docker Hub'
-      inputs:
-        command: login
-        containerRegistry: 'dockerhub-connection' # Create this service connection
-    
+    # Docker operations
     - task: Docker@2
       displayName: 'Build Docker image'
       inputs:
@@ -56,13 +43,14 @@ stages:
         repository: $(docker_image)
         tags: $(Build.BuildNumber)
     
+    # Git operations
     - script: |
         git config user.email "madhanshiva.xyz@gmail.com"
         git config user.name "madhan shiva"
         sed -i "s/replaceImageTag/$(Build.BuildNumber)/g" onlinebookstore-manifests/dep-svc.yml
         git add onlinebookstore-manifests/deployment.yml
         git commit -m "Update deployment image to version $(Build.BuildNumber)"
-        git push https://$(GITHUB_TOKEN)@github.com/$(GIT_USER_NAME)/$(GIT_REPO_NAME) HEAD:master
+        git push https://$(GITHUB_TOKEN)@github.com/$(GIT_USER_NAME)/$(GIT_REPO_NAME) HEAD:main
       displayName: 'Update deployment file'
       env:
-        GITHUB_TOKEN: $(GITHUB_TOKEN) # Create this secret variable
+        GITHUB_TOKEN: $(GITHUB_TOKEN)
