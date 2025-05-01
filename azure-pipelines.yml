@@ -1,0 +1,56 @@
+trigger:
+- main
+
+variables:
+  docker_image: 'mvmadhan/tomcat'
+  GIT_REPO_NAME: 'onlinebookstore'
+  GIT_USER_NAME: 'mvMadhan'
+
+pool:
+  vmImage: 'linuxagents' # or use your self-hosted agent pool
+
+stages:
+- stage: Build
+  jobs:
+  - job: BuildAndPush
+    container: mvmadhan/maven-docker-agent:v1
+    services:
+      docker: docker # For Docker in Docker (DinD)
+    steps:
+    - checkout: self
+      clean: true
+    
+    - script: echo "File is cloned"
+      displayName: 'Checkout'
+    
+    - script: |
+        mvn package
+        pwd
+        ls -la
+      displayName: 'Maven build'
+    
+    - task: Docker@2
+      displayName: 'Build Docker image'
+      inputs:
+        command: build
+        repository: $(docker_image)
+        tags: $(Build.BuildNumber)
+        dockerfile: '**/Dockerfile'
+    
+    - task: Docker@2
+      displayName: 'Push Docker image'
+      inputs:
+        command: push
+        repository: $(docker_image)
+        tags: $(Build.BuildNumber)
+    
+    - script: |
+        git config user.email "madhanshiva.xyz@gmail.com"
+        git config user.name "madhan shiva"
+        sed -i "s/replaceImageTag/$(Build.BuildNumber)/g" onlinebookstore-manifests/dep-svc.yml
+        git add onlinebookstore-manifests/deployment.yml
+        git commit -m "Update deployment image to version $(Build.BuildNumber)"
+        git push https://$(GITHUB_TOKEN)@github.com/$(GIT_USER_NAME)/$(GIT_REPO_NAME) HEAD:master
+      displayName: 'Update deployment file'
+      env:
+        GITHUB_TOKEN: $(GITHUB_TOKEN) # Create this secret variable in Azure DevOps
