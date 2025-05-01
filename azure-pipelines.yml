@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+      - master  # Adjust if your default branch is different
+
+variables:
+  dockerImageName: 'mvmadhan/tomcat'
+  dockerHubServiceConnection: 'dockerhub-connection'  # Replace with your service connection name
+  gitRepoName: 'onlinebookstore'
+  gitUserName: 'mvMadhan'
+  gitUserEmail: 'madhanmv580@gmail.com'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: BuildAndPush
+    displayName: Build and Push Docker Image
+    jobs:
+      - job: Build
+        steps:
+          - checkout: self
+            persistCredentials: true
+
+          - task: Maven@3
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'package'
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+          - task: Docker@2
+            displayName: Build and Push Docker Image
+            inputs:
+              command: 'buildAndPush'
+              repository: '$(dockerImageName)'
+              dockerfile: 'Dockerfile'
+              containerRegistry: '$(dockerHubServiceConnection)'
+              tags: |
+                $(Build.BuildId)
+
+  - stage: UpdateDeployment
+    displayName: Update Deployment Manifests
+    dependsOn: BuildAndPush
+    jobs:
+      - job: UpdateManifests
+        steps:
+          - checkout: self
+            persistCredentials: true
+            fetchDepth: 0
+
+          - script: |
+              git config user.email "$(gitUserEmail)"
+              git config user.name "$(gitUserName)"
+              sed -i "s/replaceImageTag/$(Build.BuildId)/g" onlinebookstore-manifests/dep-svc.yml
+              git add onlinebookstore-manifests/dep-svc.yml
+              git commit -m "Update deployment image to version $(Build.BuildId)"
+              git push https://$(gitUserName):$(GITHUB_TOKEN)@github.com/$(gitUserName)/$(gitRepoName).git HEAD:main
+            env:
+              GITHUB_TOKEN: $(GITHUB_TOKEN)
