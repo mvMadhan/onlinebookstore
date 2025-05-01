@@ -9,6 +9,7 @@ variables:
   gitRepoName: 'onlinebookstore'
   gitUserName: 'mvMadhan'
   gitUserEmail: 'madhanmv580@gmail.com'
+  system.debugContext: 'false'  # Added to prevent Null evaluation
 
 pool:
   name: linuxagents
