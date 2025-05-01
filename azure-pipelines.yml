@@ -11,7 +11,7 @@ variables:
   gitUserEmail: 'madhanmv580@gmail.com'
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: selfhostedagent
 
 stages:
   - stage: BuildAndPush
