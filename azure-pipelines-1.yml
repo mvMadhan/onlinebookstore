@@ -1,0 +1,30 @@
+trigger:
+  - master
+
+pool:
+  vmImage: 'Azure Pipelines'
+
+variables:
+  javaHome: '/usr/lib/jvm/java-8-openjdk-amd64'
+
+steps:
+  - task: Maven@3
+    inputs:
+      mavenPomFile: 'pom.xml'
+      goals: 'package'
+      javaHomeOption: 'Path'
+      jdkDirectory: '$(javaHome)'
+      publishJUnitResults: true
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(System.DefaultWorkingDirectory)/target/onlinebookstore.war'
+      ArtifactName: 'drop'
+      publishLocation: 'Container'
+
+  - task: AzureWebApp@1
+    inputs:
+      azureSubscription: 'ec89cff3-47cc-42aa-bfbc-bcfeaee71336'
+      appName: 'appservicenew'
+      package: '$(System.DefaultWorkingDirectory)/target/onlinebookstore.war'
